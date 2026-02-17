@@ -1,0 +1,145 @@
+<!-- ============================================ -->
+<!-- GAME HTML STRUCTURE                          -->
+<!-- ============================================ -->
+
+<div id="game-container">
+
+	<!-- TITLE SCREEN -->
+	<div id="title-screen" class="screen active">
+		<div id="mansion-silhouette"></div>
+		<h1 id="game-title">Forensic Detective</h1>
+		<p id="game-subtitle">A DNA Investigation Game</p>
+		<div id="title-buttons">
+			<button id="btn-new-game" class="btn btn-primary" onclick="showSetupScreen()">New Investigation</button>
+			<button id="btn-load-game" class="btn btn-secondary" onclick="loadAndResumeGame()">Continue Investigation</button>
+		</div>
+		<p id="title-credit">Learn real forensic science by solving a murder mystery</p>
+	</div>
+
+	<!-- SETUP SCREEN -->
+	<div id="setup-screen" class="screen">
+		<h2>Case Configuration</h2>
+		<div id="setup-form">
+			<div class="setup-section">
+				<h3>Difficulty Level</h3>
+				<div id="difficulty-options" class="option-group">
+					<!-- filled by JS -->
+				</div>
+			</div>
+			<div class="setup-section">
+				<h3>Select Suspects (4-6)</h3>
+				<p class="setup-hint">Choose which suspects were present at the dinner party.</p>
+				<div id="suspect-selection" class="suspect-grid">
+					<!-- filled by JS -->
+				</div>
+				<p id="suspect-count-display">Selected: 0 / 4-6 required</p>
+			</div>
+			<button id="btn-start-case" class="btn btn-primary" onclick="startCase()" disabled>Begin Investigation</button>
+		</div>
+	</div>
+
+	<!-- INTRO BRIEFING SCREEN -->
+	<div id="intro-screen" class="screen">
+		<div id="intro-content">
+			<!-- filled by JS -->
+		</div>
+		<button id="btn-enter-scene" class="btn btn-primary" onclick="enterScenePhase()">Proceed to Crime Scene</button>
+	</div>
+
+	<!-- MAIN GAME SCREEN -->
+	<div id="game-screen" class="screen">
+
+		<!-- Header bar: timer, round, score -->
+		<div id="game-header">
+			<div id="header-left">
+				<span id="round-display">Round 1</span>
+				<span id="phase-display">Scene Investigation</span>
+			</div>
+			<div id="timer-container">
+				<div id="timer-bar">
+					<div id="timer-bar-fill"></div>
+				</div>
+				<span id="timer-text">5:00</span>
+			</div>
+			<div id="header-right">
+				<span id="score-display">Score: 0</span>
+				<button id="btn-help" class="btn btn-small" onclick="showHelp('general')">? Help</button>
+			</div>
+		</div>
+
+		<!-- Game body: three column layout -->
+		<div id="game-body">
+
+			<!-- Left: Character/Suspect cards -->
+			<div id="character-panel">
+				<h3>Suspects</h3>
+				<div id="suspect-cards">
+					<!-- filled by JS -->
+				</div>
+			</div>
+
+			<!-- Center: Main phase content -->
+			<div id="main-panel">
+				<!-- Scene phase, lab phase, or case board content goes here -->
+			</div>
+
+			<!-- Right: Evidence sidebar -->
+			<div id="evidence-sidebar">
+				<h3>Evidence Collected</h3>
+				<div id="evidence-list">
+					<p class="empty-state">No evidence collected yet.</p>
+				</div>
+				<div id="lab-results-summary" style="display:none;">
+					<h3>Lab Results</h3>
+					<div id="results-list"></div>
+				</div>
+			</div>
+
+		</div>
+
+		<!-- Phase navigation buttons -->
+		<div id="phase-nav">
+			<button id="btn-to-scene" class="btn btn-nav" onclick="enterScenePhase()" style="display:none;">Crime Scene</button>
+			<button id="btn-to-lab" class="btn btn-nav" onclick="enterLabPhase()" style="display:none;">Laboratory</button>
+			<button id="btn-to-board" class="btn btn-nav" onclick="enterCaseBoard()" style="display:none;">Case Board</button>
+			<button id="btn-end-round" class="btn btn-nav btn-accent" onclick="endRound()" style="display:none;">End Round</button>
+		</div>
+
+	</div>
+
+	<!-- ROUND END SCREEN -->
+	<div id="round-end-screen" class="screen">
+		<div id="round-score-content">
+			<!-- filled by JS -->
+		</div>
+	</div>
+
+	<!-- ACCUSATION SCREEN -->
+	<div id="accusation-screen" class="screen">
+		<h2>Final Accusation</h2>
+		<div id="accusation-content">
+			<!-- filled by JS -->
+		</div>
+	</div>
+
+	<!-- GAME OVER SCREEN -->
+	<div id="game-over-screen" class="screen">
+		<div id="game-over-content">
+			<!-- filled by JS -->
+		</div>
+	</div>
+
+	<!-- MODAL OVERLAY (for results, dialogs, help) -->
+	<div id="modal-overlay" class="modal-hidden">
+		<div id="modal-box">
+			<button id="modal-close" class="btn btn-small" onclick="closeModal()">&times;</button>
+			<div id="modal-content">
+				<!-- filled by JS -->
+			</div>
+		</div>
+	</div>
+
+	<!-- Hidden canvas for gel visualization -->
+	<canvas id="gel-canvas" width="700" height="450" style="display:none;"></canvas>
+
+</div>
