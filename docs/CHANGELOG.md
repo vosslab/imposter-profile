@@ -2,6 +2,10 @@
 
 ## 2026-02-16
 
+- Rewrote [README.md](../README.md) with project description, quick start, testing, and documentation links
+- Created [docs/INSTALL.md](docs/INSTALL.md) with setup steps and verify command
+- Created [docs/USAGE.md](docs/USAGE.md) with gameplay overview and build instructions
+- Added [docs/BUILD_RETROSPECTIVE.md](docs/BUILD_RETROSPECTIVE.md) -- retrospective on the parallel-agent build process, covering what worked (modular files, parallel authoring, Playwright testing), what didn't (no shared data contracts, over-scoping, canvas timing), and what to do differently (interface contracts first, minimum viable scope, batched builds with integration checkpoints).
 - Simplified [parts/constants.js](parts/constants.js) -- narrowed FORENSIC_TESTS to blood typing and RFLP only (removed STR, mtDNA, restriction digest) per scope reduction; removed hair and fiber from EVIDENCE_TYPES since no available test supports them.
 - Fixed [parts/data_generation.js](parts/data_generation.js) -- fixed data structure mismatch where `generateTestResult()` nested data under `result.data` instead of merging properties directly onto the result object; fixed `generateRFLPResult()` to return single enzyme `{enzyme, fragments}` instead of all enzymes; fixed `generateBloodTypeResult()` to separate `bloodType` and `rhFactor` fields; added `buildSuspectReferenceProfiles()`, `generateControlFragments()`, and `buildSuspectSTRProfiles()` helpers for gel comparison lanes.
 - Rewrote [parts/lab_phase.js](parts/lab_phase.js) -- replaced dropdown-based lab UI with button-based interface for sample selection and test type selection; added `selectSample()`, `buildTestButtons()`, `runTestDirect()` functions; rewrote `showInterpretationForm()` from textarea to 5 button choices (Definitive Match, Consistent With, Partial Match, Inconclusive, Excludes Suspect(s)); added `scoreInterpretationChoice()` for button-based scoring; fixed canvas rendering timing by wrapping `renderGel` calls in `requestAnimationFrame`.
