@@ -290,7 +290,6 @@ function collectEvidence(evidenceIndex) {
 			gameState.contaminationEvents + '</strong></p>' +
 			'<p>Always put on gloves before handling evidence!</p>',
 			function() {
-				closeModal();
 				// Proceed to collection dialog despite contamination
 				showCollectionDialog(evidenceItem, evidenceIndex);
 			}
@@ -314,16 +313,21 @@ function showCollectionDialog(evidenceItem, evidenceIndex) {
 	// Pre-select the evidence type dropdown based on the item
 	var guessedType = guessEvidenceType(evidenceItem);
 
+	// Auto-generate a descriptive label
+	var typeDisplay = guessedType.replace(/_/g, ' ');
+	var autoLabel = typeDisplay.charAt(0).toUpperCase() + typeDisplay.slice(1);
+	autoLabel += ' - ' + evidenceItem.location;
+
 	var formHtml = '';
 	formHtml += '<div class="collection-form">';
 
-	// Sample label input
+	// Auto-generated sample label (editable)
 	formHtml += '<div class="form-group">';
 	formHtml += '<label for="sample-label">Sample Label:</label>';
 	formHtml += '<input type="text" id="sample-label" ';
-	formHtml += 'placeholder="e.g., Blood from desk edge" ';
+	formHtml += 'value="' + escapeHtml(autoLabel) + '" ';
 	formHtml += 'maxlength="60">';
-	formHtml += '<p class="form-hint">Give this sample a descriptive name for tracking.</p>';
+	formHtml += '<p class="form-hint">Auto-generated label. Edit if desired.</p>';
 	formHtml += '</div>';
 
 	// Evidence type dropdown
@@ -332,33 +336,24 @@ function showCollectionDialog(evidenceItem, evidenceIndex) {
 	formHtml += '<select id="evidence-type-select">';
 	for (var i = 0; i < EVIDENCE_TYPES.length; i++) {
 		var evType = EVIDENCE_TYPES[i];
-		var evLabel = evType.replace('_', ' ');
+		var evLabel = evType.replace(/_/g, ' ');
 		var selected = (evType === guessedType) ? ' selected' : '';
 		formHtml += '<option value="' + evType + '"' + selected + '>';
 		formHtml += evLabel;
 		formHtml += '</option>';
 	}
 	formHtml += '</select>';
-	formHtml += '<p class="form-hint">Select the type of biological evidence.</p>';
 	formHtml += '</div>';
 
-	// Location notes input
+	// Location notes auto-filled
 	formHtml += '<div class="form-group">';
 	formHtml += '<label for="location-notes">Location Notes:</label>';
 	formHtml += '<input type="text" id="location-notes" ';
-	formHtml += 'placeholder="e.g., Found near the window latch" ';
+	formHtml += 'value="' + escapeHtml(evidenceItem.location) + '" ';
 	formHtml += 'maxlength="80">';
-	formHtml += '<p class="form-hint">Describe exactly where the sample was found.</p>';
 	formHtml += '</div>';
 
-	// Evidence preview
-	formHtml += '<div class="evidence-preview">';
-	formHtml += '<strong>Collecting:</strong> ';
-	formHtml += escapeHtml(evidenceItem.description);
-	formHtml += ' (' + escapeHtml(evidenceItem.location) + ')';
-	formHtml += '</div>';
-
-	// Collect button
+	// Collect button (prominent)
 	formHtml += '<button class="btn btn-primary" ';
 	formHtml += 'onclick="submitCollectionForm(' + evidenceIndex + ')">';
 	formHtml += 'Collect Sample';
@@ -372,32 +367,32 @@ function showCollectionDialog(evidenceItem, evidenceIndex) {
 /* ============================================ */
 function guessEvidenceType(evidenceItem) {
 	/*
-	Attempts to guess the evidence type based on the description text.
-	Returns the best matching type string from EVIDENCE_TYPES.
+	Returns the evidence type. Uses the item's type field directly since
+	evidence items are generated with a known type. Falls back to keyword
+	matching on location text if type is missing.
 	Args:
-		evidenceItem: the evidence object with a description field
+		evidenceItem: the evidence object with type and location fields
 	*/
-	var desc = evidenceItem.description.toLowerCase();
+	// Evidence items already have a type property from generation
+	if (evidenceItem.type) {
+		return evidenceItem.type;
+	}
 
-	// Check for keywords associated with each type
-	if (desc.indexOf('blood') !== -1 || desc.indexOf('red stain') !== -1 || desc.indexOf('spatter') !== -1) {
+	// Fallback: try to guess from location text
+	var desc = (evidenceItem.location || '').toLowerCase();
+	if (desc.indexOf('blood') !== -1 || desc.indexOf('red stain') !== -1) {
 		return 'blood';
 	}
 	if (desc.indexOf('hair') !== -1 || desc.indexOf('strand') !== -1) {
 		return 'hair';
 	}
-	if (desc.indexOf('saliva') !== -1 || desc.indexOf('wet spot') !== -1 || desc.indexOf('lips') !== -1) {
+	if (desc.indexOf('saliva') !== -1 || desc.indexOf('wet spot') !== -1) {
 		return 'saliva';
 	}
-	if (desc.indexOf('fiber') !== -1 || desc.indexOf('thread') !== -1 || desc.indexOf('fabric') !== -1 || desc.indexOf('tuft') !== -1) {
+	if (desc.indexOf('fiber') !== -1 || desc.indexOf('thread') !== -1) {
 		return 'fiber';
 	}
-	if (desc.indexOf('fingerprint') !== -1 || desc.indexOf('skin cell') !== -1 || desc.indexOf('palm print') !== -1 || desc.indexOf('print') !== -1 || desc.indexOf('residue') !== -1) {
-		return 'touch_dna';
-	}
-
-	// Default to the item's actual type if no keyword match
-	return evidenceItem.type;
+	return 'touch_dna';
 }
 
 /* ============================================ */
@@ -461,12 +456,9 @@ function confirmCollection(evidenceIndex, label, evidenceType, locationNotes) {
 		chainOfCustody: custodyScore,
 		sourceIndex: evidenceIndex,
 		collectedAt: gameState.round,
-		// Copy over DNA profile data from the evidence for lab analysis
-		ownerSuspectId: evidenceItem.ownerSuspectId || null,
-		dnaProfile: evidenceItem.dnaProfile || null,
-		bloodType: evidenceItem.bloodType || null,
-		hairType: evidenceItem.hairType || null,
-		mtdnaHaplotype: evidenceItem.mtdnaHaplotype || null
+		// Copy source character ID for lab test lookups
+		sourceCharacter: evidenceItem.sourceCharacter || null,
+		mixedWith: evidenceItem.mixedWith || null
 	};
 
 	// Add the sample to the player's collection

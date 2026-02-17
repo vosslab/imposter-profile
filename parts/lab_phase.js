@@ -5,8 +5,7 @@
 /* ============================================ */
 function renderLabPhase() {
 	/* Render the laboratory analysis phase UI into #main-panel.
-	   Shows test controls (sample selector, test type, control checkbox),
-	   the run-test button, and a scrollable list of previous results.
+	   Uses a button-based interface: pick a sample, then pick a test.
 	   Also updates the evidence sidebar with lab results. */
 	var panel = document.getElementById('main-panel');
 	if (!panel) {
@@ -23,65 +22,59 @@ function renderLabPhase() {
 	html += gameState.testsRemaining + '</strong></p>';
 	html += '</div>';
 
-	// Test controls section
-	html += '<div class="lab-controls">';
-
-	// Sample selector dropdown
-	html += '<div class="lab-control-row">';
-	html += '<label for="sample-select">Sample:</label>';
-	html += '<select id="sample-select" onchange="onSampleSelected()">';
-	html += '<option value="">-- Select a sample --</option>';
+	// Step 1: Sample selection buttons
+	html += '<div class="lab-section">';
+	html += '<h3>1. Select a Sample</h3>';
+	html += '<div class="lab-button-grid" id="sample-buttons">';
 	for (var i = 0; i < gameState.collectedSamples.length; i++) {
 		var sample = gameState.collectedSamples[i];
-		// Build a readable label from sample properties
 		var sampleLabel = buildSampleLabel(sample, i);
-		html += '<option value="' + i + '">' + sampleLabel + '</option>';
+		var selectedClass = (gameState._selectedSampleIndex === i) ? ' selected' : '';
+		html += '<button class="lab-sample-btn' + selectedClass + '" ';
+		html += 'onclick="selectSample(' + i + ')">';
+		html += '<span class="sample-btn-type">' + (sample.actualType || 'evidence').toUpperCase() + '</span>';
+		html += '<span class="sample-btn-label">' + escapeHtml(sample.label || sample.location || '') + '</span>';
+		html += '<span class="sample-btn-quality">' + (sample.quality || '') + '</span>';
+		html += '</button>';
 	}
-	html += '</select>';
+	html += '</div>';
 	html += '</div>';
 
-	// Test type selector dropdown (populated based on sample selection)
-	html += '<div class="lab-control-row">';
-	html += '<label for="test-select">Test Type:</label>';
-	html += '<select id="test-select" disabled>';
-	html += '<option value="">-- Select a sample first --</option>';
-	html += '</select>';
+	// Step 2: Test type buttons (shown after sample selection)
+	html += '<div class="lab-section" id="test-type-section">';
+	html += '<h3>2. Choose a Test</h3>';
+	if (gameState._selectedSampleIndex !== undefined && gameState._selectedSampleIndex !== null) {
+		html += buildTestButtons(gameState._selectedSampleIndex);
+	} else {
+		html += '<p class="empty-state">Select a sample first.</p>';
+	}
 	html += '</div>';
 
-	// Include control sample checkbox
-	html += '<div class="lab-control-row">';
-	html += '<label>';
+	// Control toggle
+	html += '<div class="lab-section lab-control-toggle">';
+	html += '<label class="control-label">';
 	html += '<input type="checkbox" id="control-checkbox" checked> ';
-	html += 'Include Control Sample';
+	html += 'Include Control Sample <span class="hint-text">(+points for quality)</span>';
 	html += '</label>';
-	html += '<span class="hint-text">(Recommended for quality assurance)</span>';
-	html += '</div>';
-
-	// Run Test button
-	html += '<div class="lab-control-row">';
-	html += '<button id="btn-run-test" class="btn btn-primary" onclick="runTest()">Run Test</button>';
-	html += '</div>';
-
 	html += '</div>';
 
 	// Active result display area
 	html += '<div id="lab-result-display">';
-	html += '<p class="empty-state">Select a sample and test type, then click Run Test.</p>';
+	if (gameState.testResults.length === 0) {
+		html += '<p class="empty-state">Pick a sample and test to see results here.</p>';
+	}
 	html += '</div>';
 
 	// Previously run test results (scrollable)
 	html += '<div id="previous-results">';
-	html += '<h3>Previous Results</h3>';
-	html += '<div id="previous-results-list">';
-	if (gameState.testResults.length === 0) {
-		html += '<p class="empty-state">No tests run yet this round.</p>';
-	} else {
-		// Render existing results in reverse order (newest first)
+	if (gameState.testResults.length > 0) {
+		html += '<h3>Previous Results</h3>';
+		html += '<div id="previous-results-list">';
 		for (var j = gameState.testResults.length - 1; j >= 0; j--) {
 			html += buildPreviousResultCard(gameState.testResults[j], j);
 		}
+		html += '</div>';
 	}
-	html += '</div>';
 	html += '</div>';
 
 	html += '</div>';
@@ -89,6 +82,150 @@ function renderLabPhase() {
 
 	// Update sidebar
 	updateLabResultsSidebar();
+}
+
+/* ============================================ */
+function selectSample(index) {
+	/* Handle clicking a sample button. Highlights selection and
+	   reveals compatible test type buttons.
+
+	Args:
+		index: index into gameState.collectedSamples
+	*/
+	gameState._selectedSampleIndex = index;
+
+	// Update button highlights
+	var btns = document.querySelectorAll('.lab-sample-btn');
+	for (var i = 0; i < btns.length; i++) {
+		btns[i].classList.remove('selected');
+	}
+	if (btns[index]) {
+		btns[index].classList.add('selected');
+	}
+
+	// Populate test buttons
+	var section = document.getElementById('test-type-section');
+	if (section) {
+		section.innerHTML = '<h3>2. Choose a Test</h3>' + buildTestButtons(index);
+	}
+}
+
+/* ============================================ */
+function buildTestButtons(sampleIndex) {
+	/* Build HTML for test type buttons compatible with the selected sample.
+
+	Args:
+		sampleIndex: index into gameState.collectedSamples
+
+	Returns:
+		string: HTML for test buttons
+	*/
+	var sample = gameState.collectedSamples[sampleIndex];
+	if (!sample) {
+		return '<p class="empty-state">Invalid sample.</p>';
+	}
+
+	var sampleType = sample.actualType || '';
+	var html = '<div class="lab-button-grid" id="test-buttons">';
+	var testKeys = Object.keys(FORENSIC_TESTS);
+	var anyCompatible = false;
+
+	for (var i = 0; i < testKeys.length; i++) {
+		var testKey = testKeys[i];
+		var testDef = FORENSIC_TESTS[testKey];
+
+		// Check compatibility
+		var compatible = false;
+		for (var j = 0; j < testDef.sampleTypes.length; j++) {
+			if (testDef.sampleTypes[j] === sampleType) {
+				compatible = true;
+				break;
+			}
+		}
+
+		if (compatible) {
+			anyCompatible = true;
+			var disabled = (gameState.testsRemaining <= 0) ? ' disabled' : '';
+			html += '<button class="lab-test-btn"' + disabled;
+			html += ' onclick="runTestDirect(' + sampleIndex + ', \'' + testKey + '\')">';
+			html += '<span class="test-btn-name">' + testDef.name + '</span>';
+			html += '<span class="test-btn-desc">' + (testDef.description || '') + '</span>';
+			html += '</button>';
+		}
+	}
+
+	if (!anyCompatible) {
+		html += '<p class="empty-state">No compatible tests for this sample type.</p>';
+	}
+
+	html += '</div>';
+	return html;
+}
+
+/* ============================================ */
+function runTestDirect(sampleIndex, testType) {
+	/* Run a test directly from button click (no dropdowns needed).
+
+	Args:
+		sampleIndex: index into gameState.collectedSamples
+		testType: string key from FORENSIC_TESTS
+	*/
+	if (gameState.testsRemaining <= 0) {
+		showModal('No Tests Remaining',
+			'<p>You have used all available tests for this round.</p>' +
+			'<p>Proceed to the Case Board to evaluate your evidence.</p>');
+		return;
+	}
+
+	var sample = gameState.collectedSamples[sampleIndex];
+	if (!sample) {
+		return;
+	}
+
+	var controlCheckbox = document.getElementById('control-checkbox');
+	var includeControl = controlCheckbox ? controlCheckbox.checked : false;
+
+	// Decrement tests remaining
+	gameState.testsRemaining--;
+	var countDisplay = document.getElementById('tests-remaining-count');
+	if (countDisplay) {
+		countDisplay.textContent = gameState.testsRemaining;
+	}
+
+	// Generate the test result
+	var result = generateTestResult(sample, testType, includeControl);
+	result.sampleIndex = sampleIndex;
+	result.sampleType = sample.actualType || '';
+	result.interpretation = '';
+	gameState.testResults.push(result);
+	gameState.currentTestResult = result;
+
+	// Score: test selection
+	scoreTestSelection(sample, testType);
+
+	// Score: control usage
+	if (includeControl) {
+		gameState.currentRoundScore.controlUsage += SCORE_WEIGHTS.controlUsage;
+	}
+
+	// Display the result
+	displayTestResult(result);
+
+	// Show the interpretation form
+	var resultIndex = gameState.testResults.length - 1;
+	showInterpretationForm(resultIndex);
+
+	// Update previous results list and sidebar
+	updatePreviousResultsList();
+	updateLabResultsSidebar();
+
+	// Disable test buttons if no tests remain
+	if (gameState.testsRemaining <= 0) {
+		var testBtns = document.querySelectorAll('.lab-test-btn');
+		for (var i = 0; i < testBtns.length; i++) {
+			testBtns[i].disabled = true;
+		}
+	}
 }
 
 /* ============================================ */
@@ -102,8 +239,12 @@ function buildSampleLabel(sample, index) {
 	Returns:
 		string: descriptive label for dropdown display
 	*/
-	var typeLabel = sample.type || 'unknown';
-	// Convert underscores to spaces for display
+	// Use player-assigned label if available
+	if (sample.label && sample.label.length > 0) {
+		return '#' + (index + 1) + ': ' + sample.label;
+	}
+	// Fallback to type and location
+	var typeLabel = sample.actualType || 'evidence';
 	typeLabel = typeLabel.replace(/_/g, ' ');
 	var location = sample.location || '';
 	var label = '#' + (index + 1) + ': ' + typeLabel;
@@ -206,135 +347,6 @@ function getResultSummaryText(result) {
 /* escapeHtml is defined in scene_phase.js (loaded before this file) */
 
 /* ============================================ */
-function onSampleSelected() {
-	/* Handle sample selection change. Populates the test type
-	   dropdown with only the tests compatible with the selected
-	   sample's evidence type. */
-	var sampleSelect = document.getElementById('sample-select');
-	var testSelect = document.getElementById('test-select');
-	if (!sampleSelect || !testSelect) {
-		return;
-	}
-
-	var sampleIndex = sampleSelect.value;
-	if (sampleIndex === '') {
-		// No sample selected; disable test dropdown
-		testSelect.disabled = true;
-		testSelect.innerHTML = '<option value="">-- Select a sample first --</option>';
-		return;
-	}
-
-	var sample = gameState.collectedSamples[parseInt(sampleIndex, 10)];
-	if (!sample) {
-		return;
-	}
-
-	var sampleType = sample.type || '';
-
-	// Build test options filtered by sample compatibility
-	var optionsHtml = '<option value="">-- Select a test --</option>';
-	var testKeys = Object.keys(FORENSIC_TESTS);
-	var hasOptions = false;
-
-	for (var i = 0; i < testKeys.length; i++) {
-		var testKey = testKeys[i];
-		var testDef = FORENSIC_TESTS[testKey];
-		// Check if this test supports the sample type
-		var compatible = false;
-		for (var j = 0; j < testDef.sampleTypes.length; j++) {
-			if (testDef.sampleTypes[j] === sampleType) {
-				compatible = true;
-				break;
-			}
-		}
-		if (compatible) {
-			optionsHtml += '<option value="' + testKey + '">' + testDef.name + '</option>';
-			hasOptions = true;
-		}
-	}
-
-	if (!hasOptions) {
-		optionsHtml = '<option value="">No compatible tests for this sample type</option>';
-	}
-
-	testSelect.innerHTML = optionsHtml;
-	testSelect.disabled = !hasOptions;
-}
-
-/* ============================================ */
-function runTest() {
-	/* Execute a forensic test on the selected sample. Validates
-	   inputs, decrements remaining tests, generates the result,
-	   scores the choices, and renders the output. Called when the
-	   Run Test button is clicked. */
-
-	// Validate: tests remaining
-	if (gameState.testsRemaining <= 0) {
-		showModal('No Tests Remaining',
-			'<p>You have used all available tests for this round.</p>' +
-			'<p>Proceed to the Case Board to evaluate your evidence.</p>');
-		return;
-	}
-
-	// Validate: sample selected
-	var sampleSelect = document.getElementById('sample-select');
-	if (!sampleSelect || sampleSelect.value === '') {
-		showModal('No Sample Selected', '<p>Please select a sample to test.</p>');
-		return;
-	}
-
-	// Validate: test type selected
-	var testSelect = document.getElementById('test-select');
-	if (!testSelect || testSelect.value === '') {
-		showModal('No Test Selected', '<p>Please select a test type to run.</p>');
-		return;
-	}
-
-	var sampleIndex = parseInt(sampleSelect.value, 10);
-	var sample = gameState.collectedSamples[sampleIndex];
-	var testType = testSelect.value;
-	var controlCheckbox = document.getElementById('control-checkbox');
-	var includeControl = controlCheckbox ? controlCheckbox.checked : false;
-
-	// Decrement tests remaining
-	gameState.testsRemaining--;
-	var countDisplay = document.getElementById('tests-remaining-count');
-	if (countDisplay) {
-		countDisplay.textContent = gameState.testsRemaining;
-	}
-
-	// Generate the test result using data_generation module
-	var result = generateTestResult(sample, testType, includeControl);
-
-	// Store result in game state
-	result.sampleIndex = sampleIndex;
-	result.interpretation = '';
-	gameState.testResults.push(result);
-	gameState.currentTestResult = result;
-
-	// Score: test selection appropriateness
-	scoreTestSelection(sample, testType);
-
-	// Score: control usage
-	if (includeControl) {
-		gameState.currentRoundScore.controlUsage += SCORE_WEIGHTS.controlUsage;
-	}
-
-	// Display the result
-	displayTestResult(result);
-
-	// Show the interpretation form below the result
-	var resultIndex = gameState.testResults.length - 1;
-	showInterpretationForm(resultIndex);
-
-	// Update previous results list
-	updatePreviousResultsList();
-
-	// Update sidebar
-	updateLabResultsSidebar();
-}
-
-/* ============================================ */
 function scoreTestSelection(sample, testType) {
 	/* Award points for selecting an appropriate test for the
 	   given sample type. More informative tests earn more points.
@@ -343,7 +355,7 @@ function scoreTestSelection(sample, testType) {
 		sample: the evidence sample object
 		testType: string key from FORENSIC_TESTS
 	*/
-	var sampleType = sample.type || '';
+	var sampleType = sample.actualType || '';
 	var testDef = FORENSIC_TESTS[testType];
 	if (!testDef) {
 		return;
@@ -559,11 +571,15 @@ function displayRFLPResult(result) {
 	// Build lanes for gel rendering
 	var lanes = buildRFLPLanes(result);
 	var gelTitle = 'RFLP Analysis - ' + (result.enzyme || 'EcoRI');
-	renderGel('rflp-inline-canvas', lanes, gelTitle);
 
 	// Store lanes for modal enlargement
 	gameState._lastRFLPLanes = lanes;
 	gameState._lastRFLPTitle = gelTitle;
+
+	// Defer rendering until after the DOM has updated the new canvas
+	requestAnimationFrame(function() {
+		renderGel('rflp-inline-canvas', lanes, gelTitle);
+	});
 }
 
 /* ============================================ */
@@ -668,9 +684,11 @@ function displaySTRResult(result) {
 	html += '</div>';
 	display.innerHTML = html;
 
-	// Render the STR chart on the inline canvas
+	// Defer canvas rendering until after DOM update
 	var chartTitle = 'STR Electropherogram';
-	renderSTRChart('str-inline-canvas', strProfile, chartTitle);
+	requestAnimationFrame(function() {
+		renderSTRChart('str-inline-canvas', strProfile, chartTitle);
+	});
 }
 
 /* ============================================ */
@@ -772,7 +790,10 @@ function displayRestrictionResult(result) {
 	}
 
 	var sampleFragments = result.fragments || [];
-	renderRestrictionGel('restriction-inline-canvas', sampleFragments, suspectFragments, enzyme);
+	// Defer canvas rendering until after DOM update
+	requestAnimationFrame(function() {
+		renderRestrictionGel('restriction-inline-canvas', sampleFragments, suspectFragments, enzyme);
+	});
 }
 
 /* ============================================ */
@@ -797,8 +818,8 @@ function displayGenericResult(result) {
 
 /* ============================================ */
 function showInterpretationForm(resultIndex) {
-	/* Display a textarea form below the test result visualization
-	   for the player to write their interpretation of the result.
+	/* Display button-based interpretation choices below the test result.
+	   Player picks a conclusion quality level for this evidence.
 
 	Args:
 		resultIndex: index of the test result in gameState.testResults
@@ -810,13 +831,28 @@ function showInterpretationForm(resultIndex) {
 
 	var html = '';
 	html += '<div class="interpretation-form" id="interpretation-form">';
-	html += '<h4>Interpret Results</h4>';
-	html += '<p class="hint-text">Describe what you observe. Do the patterns ';
-	html += 'match any suspects? Use terms like "match", "exclude", ';
-	html += '"consistent", "inconclusive", or "partial" for best results.</p>';
-	html += '<textarea id="interpretation-text" rows="4" ';
-	html += 'placeholder="Write your interpretation of the test results here..."></textarea>';
-	html += '<button class="btn btn-primary" onclick="submitInterpretation(' + resultIndex + ')">Submit Interpretation</button>';
+	html += '<h4>How do you interpret this result?</h4>';
+	html += '<div class="interpretation-buttons">';
+
+	// Button choices for interpretation quality
+	var choices = [
+		{ label: 'Definitive Match', value: 'definitive_match', desc: 'This evidence clearly identifies a specific suspect' },
+		{ label: 'Consistent With', value: 'consistent', desc: 'Evidence is consistent with one or more suspects' },
+		{ label: 'Partial Match', value: 'partial_match', desc: 'Some elements match but not all' },
+		{ label: 'Inconclusive', value: 'inconclusive', desc: 'Cannot draw a clear conclusion from this test' },
+		{ label: 'Excludes Suspect(s)', value: 'excludes', desc: 'This evidence rules out one or more suspects' }
+	];
+
+	for (var i = 0; i < choices.length; i++) {
+		var c = choices[i];
+		html += '<button class="btn interpretation-btn" ';
+		html += 'onclick="submitInterpretation(' + resultIndex + ', \'' + c.value + '\')">';
+		html += '<strong>' + c.label + '</strong>';
+		html += '<span class="interpretation-btn-desc">' + c.desc + '</span>';
+		html += '</button>';
+	}
+
+	html += '</div>';
 	html += '</div>';
 
 	// Append the form to the display area
@@ -824,37 +860,36 @@ function showInterpretationForm(resultIndex) {
 }
 
 /* ============================================ */
-function submitInterpretation(resultIndex, interpretationText) {
-	/* Save the player's interpretation for a test result and
-	   award scoring points based on the quality of the language.
-	   Good forensic terms earn points. Overclaiming loses points.
+function submitInterpretation(resultIndex, choiceValue) {
+	/* Save the player's interpretation choice for a test result and
+	   award scoring points based on the appropriateness of the choice.
 
 	Args:
 		resultIndex: index in gameState.testResults
-		interpretationText: optional string; if not provided, reads from textarea
+		choiceValue: string key of the interpretation choice
 	*/
-	// Read from textarea if text not passed directly
-	if (!interpretationText) {
-		var textarea = document.getElementById('interpretation-text');
-		if (!textarea) {
-			return;
-		}
-		interpretationText = textarea.value.trim();
-	}
-
-	if (interpretationText.length === 0) {
-		showModal('Empty Interpretation',
-			'<p>Please write an interpretation before submitting.</p>');
+	if (!choiceValue) {
 		return;
 	}
+
+	// Map choice to display text
+	var choiceLabels = {
+		definitive_match: 'Definitive Match',
+		consistent: 'Consistent With Suspect(s)',
+		partial_match: 'Partial Match',
+		inconclusive: 'Inconclusive',
+		excludes: 'Excludes Suspect(s)'
+	};
+	var interpretationText = choiceLabels[choiceValue] || choiceValue;
 
 	// Store the interpretation with the test result
 	if (resultIndex >= 0 && resultIndex < gameState.testResults.length) {
 		gameState.testResults[resultIndex].interpretation = interpretationText;
+		gameState.testResults[resultIndex].interpretationChoice = choiceValue;
 	}
 
-	// Score the interpretation based on keyword analysis
-	var points = scoreInterpretation(interpretationText);
+	// Score the interpretation based on choice appropriateness
+	var points = scoreInterpretationChoice(choiceValue, resultIndex);
 	gameState.currentRoundScore.interpretation += points;
 
 	// Remove the form and show confirmation
@@ -862,15 +897,14 @@ function submitInterpretation(resultIndex, interpretationText) {
 	if (form) {
 		var confirmHtml = '';
 		confirmHtml += '<div class="interpretation-saved">';
-		confirmHtml += '<p><strong>Interpretation saved.</strong>';
+		confirmHtml += '<p><strong>Logged: ' + interpretationText + '</strong>';
 		if (points > 0) {
-			confirmHtml += ' (+' + points + ' points)</p>';
+			confirmHtml += ' (+' + points + ' pts)</p>';
 		} else if (points < 0) {
-			confirmHtml += ' (' + points + ' points - avoid overclaiming)</p>';
+			confirmHtml += ' (' + points + ' pts - overclaiming penalty)</p>';
 		} else {
 			confirmHtml += '</p>';
 		}
-		confirmHtml += '<p class="hint-text"><em>' + escapeHtml(interpretationText) + '</em></p>';
 		confirmHtml += '</div>';
 		form.innerHTML = confirmHtml;
 	}
@@ -915,6 +949,51 @@ function scoreInterpretation(text) {
 	// Cap the positive score at the interpretation weight
 	score = Math.min(score, SCORE_WEIGHTS.interpretation);
 	return score;
+}
+
+/* ============================================ */
+function scoreInterpretationChoice(choiceValue, resultIndex) {
+	/* Score a button-based interpretation choice.
+	   Rewards cautious, appropriate conclusions. Penalizes overclaiming.
+
+	Args:
+		choiceValue: string key of the interpretation choice
+		resultIndex: index into gameState.testResults
+
+	Returns:
+		number: score adjustment
+	*/
+	var result = gameState.testResults[resultIndex];
+	if (!result) {
+		return 0;
+	}
+
+	// Award points based on choice appropriateness
+	switch (choiceValue) {
+		case 'definitive_match':
+			// Bold claim - penalize unless blood type is very distinctive
+			if (result.testType === 'blood_type') {
+				// Blood typing alone can never be definitive
+				gameState.currentRoundScore.overclaimingPenalty += SCORE_WEIGHTS.overclaimingPenalty;
+				return -3;
+			}
+			// RFLP can be strong but still not absolute
+			return 2;
+		case 'consistent':
+			// Good, cautious scientific language - always reasonable
+			return SCORE_WEIGHTS.interpretation;
+		case 'partial_match':
+			// Appropriate for degraded samples or limited data
+			return Math.floor(SCORE_WEIGHTS.interpretation * 0.8);
+		case 'inconclusive':
+			// Safe choice but less informative
+			return Math.floor(SCORE_WEIGHTS.interpretation * 0.5);
+		case 'excludes':
+			// Strong claim but valid if evidence supports it
+			return Math.floor(SCORE_WEIGHTS.interpretation * 0.9);
+		default:
+			return 0;
+	}
 }
 
 /* ============================================ */

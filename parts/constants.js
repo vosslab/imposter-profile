@@ -62,13 +62,13 @@ const BLOOD_TYPE_WEIGHTS = [0.44, 0.42, 0.10, 0.04];
 // Restriction enzymes used in RFLP analysis
 const RESTRICTION_ENZYMES = ['EcoRI', 'BamHI', 'HindIII'];
 
-// Evidence types found at crime scenes
-const EVIDENCE_TYPES = ['blood', 'touch_dna', 'hair', 'saliva', 'fiber'];
+// Evidence types found at crime scenes (only types with compatible tests)
+const EVIDENCE_TYPES = ['blood', 'touch_dna', 'saliva'];
 
 // Evidence quality levels
 const EVIDENCE_QUALITY = ['pristine', 'degraded', 'mixed', 'trace'];
 
-// Available forensic tests
+// Available forensic tests (focused on blood typing and RFLP)
 const FORENSIC_TESTS = {
 	blood_type: {
 		name: 'Blood Typing (ABO/Rh)',
@@ -81,24 +81,6 @@ const FORENSIC_TESTS = {
 		description: 'Restriction Fragment Length Polymorphism - cuts DNA with enzymes and separates by size on a gel',
 		sampleTypes: ['blood', 'touch_dna', 'saliva'],
 		timeMinutes: 15
-	},
-	str: {
-		name: 'PCR/STR Profiling',
-		description: 'Short Tandem Repeat analysis - amplifies and measures repeat regions at specific loci',
-		sampleTypes: ['blood', 'touch_dna', 'saliva', 'hair'],
-		timeMinutes: 20
-	},
-	mtdna: {
-		name: 'Mitochondrial DNA',
-		description: 'Analyzes maternally inherited mtDNA - useful for degraded samples and hair without roots',
-		sampleTypes: ['hair', 'touch_dna', 'blood'],
-		timeMinutes: 25
-	},
-	restriction: {
-		name: 'Restriction Enzyme Digest',
-		description: 'Cuts DNA with a specific enzyme and analyzes the fragment pattern',
-		sampleTypes: ['blood', 'touch_dna', 'saliva'],
-		timeMinutes: 10
 	}
 };
 

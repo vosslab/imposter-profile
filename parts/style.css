@@ -769,6 +769,156 @@ a:hover {
 	margin-bottom: 0.3em;
 }
 
+/* Lab button grid layout */
+.lab-section {
+	margin-bottom: 1.2em;
+}
+
+.lab-section h3 {
+	font-size: 1em;
+	color: #d4a373;
+	margin-bottom: 0.5em;
+}
+
+.lab-button-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5em;
+}
+
+.lab-sample-btn {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	background: #16213e;
+	border: 2px solid #0f3460;
+	border-radius: 8px;
+	padding: 0.6em 1em;
+	color: #e0e0e0;
+	cursor: pointer;
+	min-width: 140px;
+	transition: border-color 0.2s, background 0.2s;
+}
+
+.lab-sample-btn:hover {
+	border-color: #d4a373;
+	background: #1a2a50;
+}
+
+.lab-sample-btn.selected {
+	border-color: #d4a373;
+	background: #1a2a50;
+	box-shadow: 0 0 8px rgba(212, 163, 115, 0.3);
+}
+
+.sample-btn-type {
+	font-weight: bold;
+	font-size: 0.85em;
+	color: #d4a373;
+	letter-spacing: 0.05em;
+}
+
+.sample-btn-label {
+	font-size: 0.8em;
+	color: #8899aa;
+	margin-top: 0.2em;
+}
+
+.sample-btn-quality {
+	font-size: 0.75em;
+	color: #667788;
+	font-style: italic;
+}
+
+.lab-test-btn {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	background: #0f3460;
+	border: 2px solid #16213e;
+	border-radius: 8px;
+	padding: 0.8em 1.2em;
+	color: #e0e0e0;
+	cursor: pointer;
+	min-width: 160px;
+	flex: 1;
+	transition: border-color 0.2s, background 0.2s;
+}
+
+.lab-test-btn:hover:not(:disabled) {
+	border-color: #4a9eff;
+	background: #162f5e;
+}
+
+.lab-test-btn:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+.test-btn-name {
+	font-weight: bold;
+	font-size: 0.95em;
+}
+
+.test-btn-desc {
+	font-size: 0.75em;
+	color: #8899aa;
+	margin-top: 0.2em;
+}
+
+.lab-control-toggle {
+	padding: 0.3em 0;
+}
+
+.control-label {
+	font-size: 0.9em;
+	cursor: pointer;
+}
+
+/* Interpretation buttons */
+.interpretation-buttons {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4em;
+}
+
+.interpretation-btn {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	background: #16213e;
+	border: 1px solid #0f3460;
+	border-radius: 6px;
+	padding: 0.5em 1em;
+	color: #e0e0e0;
+	cursor: pointer;
+	text-align: left;
+	width: 100%;
+	transition: border-color 0.2s, background 0.2s;
+}
+
+.interpretation-btn:hover {
+	border-color: #d4a373;
+	background: #1a2a50;
+}
+
+.interpretation-btn strong {
+	font-size: 0.9em;
+}
+
+.interpretation-btn-desc {
+	font-size: 0.75em;
+	color: #8899aa;
+}
+
+.interpretation-saved {
+	background: #0f3460;
+	border-left: 3px solid #4caf50;
+	padding: 0.5em 1em;
+	border-radius: 4px;
+	margin-top: 0.5em;
+}
+
 /* Gel visualization container */
 .gel-container {
 	background: #0a0a18;
@@ -900,6 +1050,63 @@ a:hover {
 /* ============================================ */
 /* ROUND END AND GAME OVER SCREENS             */
 /* ============================================ */
+
+/* Accusation cards */
+.accusation-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: 1em;
+	margin: 1em 0;
+}
+
+.accusation-card {
+	background: #16213e;
+	border: 2px solid #0f3460;
+	border-radius: 8px;
+	padding: 1.2em;
+	cursor: pointer;
+	transition: border-color 0.2s, background 0.2s, transform 0.1s;
+}
+
+.accusation-card:hover {
+	border-color: #e74c3c;
+	background: #1a2a50;
+	transform: translateY(-2px);
+}
+
+.accusation-card h3 {
+	color: #d4a373;
+	margin-bottom: 0.3em;
+}
+
+.accusation-card .suspect-role {
+	color: #8899aa;
+	font-size: 0.9em;
+	margin-bottom: 0.5em;
+}
+
+.accusation-card .suspect-alibi {
+	font-size: 0.85em;
+	color: #667788;
+	font-style: italic;
+}
+
+.accusation-card .suspect-motive {
+	font-size: 0.85em;
+	margin-top: 0.5em;
+}
+
+.accusation-actions {
+	text-align: center;
+	margin-top: 1em;
+}
+
+.confirmation-buttons {
+	display: flex;
+	gap: 1em;
+	justify-content: center;
+	margin-top: 1em;
+}
 
 #round-end-screen, #accusation-screen, #game-over-screen {
 	padding: 2em;

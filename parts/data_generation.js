@@ -313,10 +313,9 @@ function generateBloodTypeResult(sample) {
 	var antiA = (bt === 'A' || bt === 'AB');
 	var antiB = (bt === 'B' || bt === 'AB');
 
-	var displayType = bt + (rhPositive ? '+' : '-');
-
 	return {
-		bloodType: displayType,
+		bloodType: bt,
+		rhFactor: rhPositive,
 		agglutination: {
 			antiA: antiA,
 			antiB: antiB,
@@ -328,62 +327,59 @@ function generateBloodTypeResult(sample) {
 /* ============================================ */
 function generateRFLPResult(sample) {
 	/* Generate RFLP gel electrophoresis results for a sample.
-	   Returns fragment arrays for each restriction enzyme.
+	   Picks a random enzyme and returns its fragment pattern.
 	   Degraded samples may lose some bands.
-	   Mixed samples combine fragments from two sources. */
+	   Mixed samples combine fragments from two sources.
+	   Returns: {enzyme, fragments} for the selected enzyme. */
 
 	var character = getCharacterDNA(sample.sourceCharacter);
 	if (!character) {
-		return { enzymes: {}, error: 'Unknown source' };
+		return { enzyme: 'EcoRI', fragments: [], error: 'Unknown source' };
 	}
 
-	var result = {};
-	for (var e = 0; e < RESTRICTION_ENZYMES.length; e++) {
-		var enzyme = RESTRICTION_ENZYMES[e];
-		var fragments = character.rflpFragments[enzyme].slice();
+	// Pick a random enzyme for this RFLP run
+	var enzyme = RESTRICTION_ENZYMES[Math.floor(Math.random() * RESTRICTION_ENZYMES.length)];
+	var fragments = character.rflpFragments[enzyme].slice();
 
-		// Degraded: randomly remove 1-2 bands
-		if (sample.quality === 'degraded' || sample.quality === 'trace') {
-			var bandsToRemove = 1 + Math.floor(Math.random() * 2);
-			for (var d = 0; d < bandsToRemove && fragments.length > 1; d++) {
-				var removeIdx = Math.floor(Math.random() * fragments.length);
-				fragments.splice(removeIdx, 1);
-			}
+	// Degraded: randomly remove 1-2 bands
+	if (sample.quality === 'degraded' || sample.quality === 'trace') {
+		var bandsToRemove = 1 + Math.floor(Math.random() * 2);
+		for (var d = 0; d < bandsToRemove && fragments.length > 1; d++) {
+			var removeIdx = Math.floor(Math.random() * fragments.length);
+			fragments.splice(removeIdx, 1);
 		}
+	}
 
-		// Trace: may fail entirely for this enzyme
-		if (sample.quality === 'trace' && Math.random() < 0.4) {
+	// Trace: may fail entirely
+	if (sample.quality === 'trace' && Math.random() < 0.4) {
+		fragments = [];
+	}
+
+	// Mixed: combine with another character's fragments
+	if (sample.quality === 'mixed' && sample.mixedWith) {
+		var mixedChar = getCharacterDNA(sample.mixedWith);
+		if (mixedChar && mixedChar.rflpFragments[enzyme]) {
+			var mixedFrags = mixedChar.rflpFragments[enzyme].slice();
+			for (var m = 0; m < mixedFrags.length; m++) {
+				fragments.push(mixedFrags[m]);
+			}
+			// Remove duplicates and sort
+			var uniqueMap = {};
+			for (var u = 0; u < fragments.length; u++) {
+				uniqueMap[fragments[u]] = true;
+			}
 			fragments = [];
-		}
-
-		// Mixed: combine with another character's fragments
-		if (sample.quality === 'mixed' && sample.mixedWith) {
-			var mixedChar = getCharacterDNA(sample.mixedWith);
-			if (mixedChar && mixedChar.rflpFragments[enzyme]) {
-				var mixedFrags = mixedChar.rflpFragments[enzyme].slice();
-				// Add the mixed fragments
-				for (var m = 0; m < mixedFrags.length; m++) {
-					fragments.push(mixedFrags[m]);
-				}
-				// Remove duplicates and sort
-				var uniqueMap = {};
-				for (var u = 0; u < fragments.length; u++) {
-					uniqueMap[fragments[u]] = true;
-				}
-				fragments = [];
-				var fragKeys = Object.keys(uniqueMap);
-				for (var f = 0; f < fragKeys.length; f++) {
-					fragments.push(parseInt(fragKeys[f], 10));
-				}
+			var fragKeys = Object.keys(uniqueMap);
+			for (var f = 0; f < fragKeys.length; f++) {
+				fragments.push(parseInt(fragKeys[f], 10));
 			}
 		}
-
-		// Sort fragments by size (ascending for gel display: small = far)
-		fragments.sort(function(a, b) { return a - b; });
-		result[enzyme] = fragments;
 	}
 
-	return { enzymes: result };
+	// Sort fragments by size (ascending for gel display: small = far)
+	fragments.sort(function(a, b) { return a - b; });
+
+	return { enzyme: enzyme, fragments: fragments };
 }
 
 /* ============================================ */
@@ -441,7 +437,7 @@ function generateSTRResult(sample) {
 		loci[locus] = alleles;
 	}
 
-	return { loci: loci };
+	return { strProfile: loci };
 }
 
 /* ============================================ */
@@ -525,6 +521,53 @@ function generateRestrictionResult(sample, enzyme) {
 }
 
 /* ============================================ */
+function buildSuspectReferenceProfiles(testType, enzyme) {
+	/* Build reference fragment profiles for all alive suspects.
+	   Used for gel comparison lanes in RFLP and restriction tests.
+	   Args:
+	     testType: 'rflp' or 'restriction'
+	     enzyme: restriction enzyme name (e.g. 'EcoRI')
+	   Returns: object mapping suspect IDs to fragment arrays. */
+
+	var profiles = {};
+	var aliveSuspects = getAliveSuspects();
+	for (var i = 0; i < aliveSuspects.length; i++) {
+		var suspect = aliveSuspects[i];
+		var dna = getCharacterDNA(suspect.id);
+		if (dna && dna.rflpFragments && dna.rflpFragments[enzyme]) {
+			profiles[suspect.id] = dna.rflpFragments[enzyme].slice();
+			profiles[suspect.id].sort(function(a, b) { return a - b; });
+		}
+	}
+	return profiles;
+}
+
+/* ============================================ */
+function generateControlFragments(testType, enzyme) {
+	/* Generate control lane fragments for gel-based tests.
+	   Returns a standard size marker ladder. */
+	// Standard DNA size marker ladder
+	return [500, 1000, 2000, 3000, 4000, 5000, 6000, 8000, 10000];
+}
+
+/* ============================================ */
+function buildSuspectSTRProfiles() {
+	/* Build STR reference profiles for all alive suspects.
+	   Returns: object mapping suspect IDs to STR profile objects. */
+
+	var profiles = {};
+	var aliveSuspects = getAliveSuspects();
+	for (var i = 0; i < aliveSuspects.length; i++) {
+		var suspect = aliveSuspects[i];
+		var dna = getCharacterDNA(suspect.id);
+		if (dna && dna.strProfile) {
+			profiles[suspect.id] = dna.strProfile;
+		}
+	}
+	return profiles;
+}
+
+/* ============================================ */
 function generateTestResult(sample, testType, includeControl) {
 	/* Generate result data for running a forensic test on a sample.
 	   Dispatches to the appropriate test-specific generator.
@@ -550,7 +593,7 @@ function generateTestResult(sample, testType, includeControl) {
 	if (testConfig) {
 		var compatible = false;
 		for (var i = 0; i < testConfig.sampleTypes.length; i++) {
-			if (testConfig.sampleTypes[i] === sample.type) {
+			if (testConfig.sampleTypes[i] === (sample.actualType || sample.type)) {
 				compatible = true;
 				break;
 			}
@@ -568,31 +611,57 @@ function generateTestResult(sample, testType, includeControl) {
 		result.reliable = false;
 	}
 
-	// Dispatch to specific test generator
+	// Dispatch to specific test generator and merge data onto result
+	var testData = null;
 	switch (testType) {
 		case 'blood_type':
-			result.data = generateBloodTypeResult(sample);
+			testData = generateBloodTypeResult(sample);
 			break;
 		case 'rflp':
-			result.data = generateRFLPResult(sample);
+			testData = generateRFLPResult(sample);
 			break;
 		case 'str':
-			result.data = generateSTRResult(sample);
+			testData = generateSTRResult(sample);
 			break;
 		case 'mtdna':
-			result.data = generateMtDNAResult(sample);
+			testData = generateMtDNAResult(sample);
 			break;
 		case 'restriction':
 			// Default to first enzyme if none specified
-			result.data = generateRestrictionResult(sample, 'EcoRI');
+			testData = generateRestrictionResult(sample, 'EcoRI');
 			break;
 		default:
-			result.data = { error: 'Unknown test type: ' + testType };
+			result.error = 'Unknown test type: ' + testType;
 			result.success = false;
 			return result;
 	}
 
+	// Merge test-specific data directly onto the result object
+	// so display functions can read result.bloodType, result.fragments, etc.
+	if (testData) {
+		var dataKeys = Object.keys(testData);
+		for (var k = 0; k < dataKeys.length; k++) {
+			result[dataKeys[k]] = testData[dataKeys[k]];
+		}
+	}
+
 	result.success = true;
+
+	// For gel-based tests (RFLP, restriction), add suspect reference profiles
+	// so the player can visually compare evidence against each suspect
+	if (testType === 'rflp' || testType === 'restriction') {
+		result.suspectProfiles = buildSuspectReferenceProfiles(testType, result.enzyme);
+
+		// Add control fragments if control was included
+		if (includeControl) {
+			result.controlFragments = generateControlFragments(testType, result.enzyme);
+		}
+	}
+
+	// For STR tests, add suspect reference profiles for comparison
+	if (testType === 'str') {
+		result.suspectStrProfiles = buildSuspectSTRProfiles();
+	}
 
 	// Add control result if included
 	if (includeControl) {
